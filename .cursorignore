@@ -1,0 +1,76 @@
+# =============================================================================
+# .cursorignore — APIagentica
+# Impede a indexação de ficheiros que não contribuem para decisões de código.
+# Menos contexto indexado = menos tokens consumidos por chamada.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Build e artefactos Maven
+# ---------------------------------------------------------------------------
+target/
+*.class
+*.jar
+*.war
+
+# ---------------------------------------------------------------------------
+# IDE e sistema operativo
+# ---------------------------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Docker — imagens e volumes locais
+# ---------------------------------------------------------------------------
+docker/volumes/
+docker/data/
+
+# ---------------------------------------------------------------------------
+# Logs e temporários
+# ---------------------------------------------------------------------------
+logs/
+*.log
+*.tmp
+*.bak
+
+# ---------------------------------------------------------------------------
+# Variáveis de ambiente — nunca indexar segredos
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+
+# ---------------------------------------------------------------------------
+# Cobertura de testes e relatórios Surefire
+# ---------------------------------------------------------------------------
+target/site/
+target/surefire-reports/
+target/jacoco/
+
+# ---------------------------------------------------------------------------
+# Documentação — o agente consulta quando pedido, não indexa sempre.
+# Excepção: CONVENCOES.md é incluído via regra em .cursorrules.
+# ---------------------------------------------------------------------------
+docs/00-visao-geral.md
+docs/06-api-rest.md
+docs/07-persistencia-flyway.md
+docs/10-observabilidade-actuator.md
+docs/11-docker-deploy.md
+docs/adr/ADR-002-base-entity-auditavel.md
+docs/adr/ADR-004-cache-caffeine-relatorios.md
+docs/adr/ADR-005-actuator.md
+
+# ---------------------------------------------------------------------------
+# Ficheiros de schema SQL — lidos pontualmente, não indexados sempre.
+# O agente pede-os quando necessita de criar migrações.
+# ---------------------------------------------------------------------------
+src/main/resources/db/migration/
+
+# ---------------------------------------------------------------------------
+# Recursos estáticos e templates (não existem no MVP mas prevenir)
+# ---------------------------------------------------------------------------
+src/main/resources/static/
+src/main/resources/templates/
+src/main/resources/public/

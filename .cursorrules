@@ -1,0 +1,84 @@
+# =============================================================================
+# .cursorrules — APIagentica
+# Fonte de verdade para o agente: docs/CONVENCOES.md
+# Lê CONVENCOES.md antes de qualquer implementação.
+# =============================================================================
+
+## STACK (imutável)
+- Java 17 · Spring Boot 3.x · Maven · PostgreSQL · JWT (jjwt)
+- NÃO uses: virtual threads, Java 21+, Spring Boot 4, Lombok, transferPairId
+
+## ARQUITECTURA — onde cada classe pertence
+```
+domain/model/          → POJO puro, sem anotações Spring ou JPA
+domain/repository/     → interfaces (ports) — só tipos de domínio
+domain/service/        → regras puras, sem @Service nem persistência
+application/service/   → @Service, @Transactional, orquestra domínio + ports
+infrastructure/persistence/entity/   → *JpaEntity extends BaseJpaEntity
+infrastructure/persistence/adapter/  → implementa port, usa *JpaRepository
+infrastructure/persistence/mapper/   → MapStruct *Mapper
+infrastructure/security/             → JwtTokenProvider, JwtAuthenticationFilter
+web/controller/        → @RestController, delega para application/service
+web/dto/               → records Java 17 + Jakarta Validation
+config/                → SecurityConfig, CacheConfig, OpenApiConfig, JpaAuditingConfig
+```
+**Regra de dependência:** domain não importa nada de Spring/JPA.
+Se precisares de uma anotação JPA numa classe de domínio, PARA e reorganiza.
+
+## SEGURANÇA — regras invioláveis
+1. `userId` vem SEMPRE do JWT (`SecurityContext`), nunca do request body
+2. Todos os queries de repositório incluem `userId`: `findByIdAndUserId(...)`
+3. Sem `userId` verificado → lançar `AccessDeniedException` (403), não 404
+4. Rotas públicas apenas: `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`
+
+## PERSISTÊNCIA
+- Schema gerido EXCLUSIVAMENTE pelo Flyway (`ddl-auto: validate`)
+- NÃO uses `ddl-auto: create`, `update` ou `create-drop`
+- Nova tabela ou coluna → cria `V{n+1}__descricao.sql` em `db/migration/`
+- Nomes SQL: `snake_case`, prefixo `tb_` nas tabelas
+- `BaseJpaEntity` já tem: `id (UUID)`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`
+- NÃO repitas esses campos nas entidades filhas
+
+## TRANSFERÊNCIAS
+- Transferência é o agregado `Transfer` (tabela `tb_transfers`)
+- Uma `Transfer` tem duas `Transaction` filhas: uma EXPENSE (origem) e uma INCOME (destino)
+- `Transaction` tem `transfer_id` (nullable FK para `tb_transfers`)
+- NÃO uses `transferPairId` — esse padrão foi abandonado (ver ADR-001)
+- O `TransferService` usa `@Transactional` e persiste os três registos atomicamente
+
+## CACHE
+- Relatórios usam `@Cacheable`: caches `balanceReport`, `cashFlow`, `categorySummary`
+- Chave de cache: `userId + filtros` (nunca só `userId`)
+- `@CacheEvict` é OBRIGATÓRIO em todo o método que escreva Transaction, Transfer ou Account
+- Se adicionares `@Cacheable` sem o `@CacheEvict` correspondente, o dado fica stale — ERRO DE DESIGN
+
+## TRATAMENTO DE ERROS
+- Todos os erros passam pelo `GlobalExceptionHandler` (`@ControllerAdvice`)
+- Formato: RFC 7807 Problem Details (`ProblemDetail` do Spring 6)
+- Códigos canónicos: 400 validação · 401 não autenticado · 403 não autorizado · 404 não encontrado · 422 regra de negócio violada
+
+## DTOs
+- Requests: records com `@NotNull`, `@NotBlank`, `@Positive`, `@Email` conforme o campo
+- Responses: records sem campos sensíveis (sem `passwordHash`, sem token em logs)
+- Paginação: `PageResponse<T>` com `content`, `page`, `size`, `totalElements`
+- `amount`: `@Positive` + `@Digits(integer=10, fraction=2)`
+- `occurredOn`: `@PastOrPresent`
+
+## TESTES
+- Testes de domínio: JUnit 5 puro, sem Spring context
+- Testes de integração: `@SpringBootTest` + Testcontainers (PostgreSQL)
+- NÃO uses H2 em memória para testes de integração
+
+## CONVENÇÕES DE CÓDIGO
+- Métodos de service: máx. 20 linhas; extrair método privado se exceder
+- Sem `System.out.println` — usa `slf4j` (`@Slf4j` via Lombok SE disponível, caso contrário `LoggerFactory`)
+- Imports organizados; sem wildcard imports (`import java.util.*`)
+- Língua do código: inglês (nomes de classes, métodos, variáveis)
+- Língua dos comentários e logs: português (alinhado com a equipa)
+
+## FLUXO DE TRABALHO COM O AGENTE
+1. Antes de implementar qualquer classe, lê `docs/CONVENCOES.md`
+2. Implementa UMA classe ou UMA funcionalidade por resposta
+3. Após implementar, lista os ficheiros alterados e o motivo
+4. Se encontrares inconsistência com a documentação, REPORTA antes de prosseguir
+5. NÃO antecipes implementações não pedidas (ex.: ao pedir `UserJpaEntity`, não cries `UserService`)

@@ -1,0 +1,29 @@
+# Maven
+target/
+
+# Maven local
+.tools/apache-maven-*/
+.tools/maven.tar.gz
+
+# Docker Compose binário
+.tools/docker-compose
+
+# Ambiente
+.env
+.env.local
+.env.*
+
+# Mantém apenas o exemplo
+!.env.example
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
